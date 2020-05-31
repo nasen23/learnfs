@@ -1,0 +1,20 @@
+{
+  "name": "learnfs",
+  "version": "1.0.0",
+  "main": "index.ts",
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node index.ts"
+  },
+  "dependencies": {
+    "fuse-native": "^2.2.3",
+    "thu-learn-lib": "^2.2.3",
+    "yargs": "^15.3.1"
+  },
+  "devDependencies": {
+    "@types/yargs": "^15.0.5",
+    "ts-node": "^8.10.2",
+    "typescript": "^3.9.3"
+  }
+}
