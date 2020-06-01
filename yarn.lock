@@ -209,6 +209,11 @@ es6-denodeify@^0.1.5:
   resolved "https://registry.npm.taobao.org/es6-denodeify/download/es6-denodeify-0.1.5.tgz#31d4d5fe9c5503e125460439310e16a2a3f39c1f"
   integrity sha1-MdTV/pxVA+ElRgQ5MQ4WoqPznB8=
 
+esm@^3.2.25:
+  version "3.2.25"
+  resolved "https://registry.npm.taobao.org/esm/download/esm-3.2.25.tgz#342c18c29d56157688ba5ce31f8431fbb795cc10"
+  integrity sha1-NCwYwp1WFXaIulzjH4Qx+7eVzBA=
+
 find-up@^4.1.0:
   version "4.1.0"
   resolved "https://registry.npm.taobao.org/find-up/download/find-up-4.1.0.tgz#97afe7d6cdc0bc5928584b7c8d7b16e8a9aa5d19"

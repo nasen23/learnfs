@@ -1,11 +1,11 @@
 {
   "name": "learnfs",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "dist/index.js",
   "license": "MIT",
   "scripts": {
     "build": "tsc",
-    "start": "ts-node index.ts"
+    "start": "ts-node -r esm index.ts"
   },
   "dependencies": {
     "fuse-native": "^2.2.3",
@@ -14,6 +14,7 @@
   },
   "devDependencies": {
     "@types/yargs": "^15.0.5",
+    "esm": "^3.2.25",
     "ts-node": "^8.10.2",
     "typescript": "^3.9.3"
   }
