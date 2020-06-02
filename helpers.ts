@@ -20,3 +20,10 @@ export function stat(st) {
 export function directory(entries: string[]): string[] {
   return ['.', '..', ...entries];
 }
+
+export enum Category {
+  notification = '公告',
+  file = '文件',
+  homework = '作业',
+  discussion = '讨论',
+}

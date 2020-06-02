@@ -1,7 +1,7 @@
 import * as yargs from 'yargs';
 import * as Fuse from 'fuse-native';
 import { Learn2018Helper } from 'thu-learn-lib';
-import { stat, directory } from './helpers';
+import { stat, directory, Category } from './helpers';
 
 const argv = yargs
   .scriptName('learnfs')
@@ -14,6 +14,7 @@ const argv = yargs
   .demandCommand(1).argv;
 
 let courses;
+
 async function main() {
   const helper = new Learn2018Helper({
     provider: () => {
@@ -28,10 +29,12 @@ async function main() {
         courses = await helper.getCourseList(semester.id);
         cb(0);
       } catch (e) {
-        throw e;
+        console.log(e);
+        process.exit(-1);
       }
     },
-    readdir: async (path, cb) => {
+    readdir: async (path: string, cb) => {
+      const slices = path.split('/').filter(x => x);
       if (path === '/')
         return cb(
           null,
@@ -41,13 +44,29 @@ async function main() {
             })
           )
         );
+      else if (
+        slices.length == 1 &&
+        courses.find(course => course.name === slices[0])
+      )
+        return cb(null, directory(Object.values(Category)));
+      else if (slices.length == 2) {
+      }
       return cb(Fuse.ENOENT);
     },
     getattr: function (path: string, cb) {
-      if (path === '/')
-        return process.nextTick(cb, null, stat({ mode: 'dir', size: 4096 }));
-      else if (courses.find(course => course.name === path.substring(1)))
-        return process.nextTick(cb, null, stat({ mode: 'dir', size: 4096 }));
+      const slices = path.split('/').filter(x => x);
+      if (path === '/') return cb(null, stat({ mode: 'dir', size: 4096 }));
+      else if (
+        slices.length === 1 &&
+        courses.find(course => course.name === slices[0])
+      )
+        return cb(null, stat({ mode: 'dir', size: 4096 }));
+      else if (
+        slices.length === 2 &&
+        Object.values(Category).find(c => c === slices[1])
+      )
+        return cb(null, stat({ mode: 'dir', size: 4096 }));
+
       return process.nextTick(cb, Fuse.ENOENT);
     },
     open: function (path, flags, cb) {
