@@ -65,6 +65,7 @@ async function main() {
           course.id,
           course.courseType
         );
+        discussions[course.name] = res
         return cb(
           null,
           res.map((discussion) => discussion.title)
@@ -103,6 +104,13 @@ async function main() {
                 stat({ mode: "file", size: 1000 }) //TODO: get file size
               );
             }
+            else if (paths[1] === "discussion"){
+              return process.nextTick(
+                cb,
+                null,
+                stat({mode:"file",size:1000})
+              )
+            }
           }
         }
       }
@@ -118,24 +126,23 @@ async function main() {
       // Read notification
       let paths = path.substring(1).split("/");
       if (courses.find((course) => course.name === paths[0])) {
-        // get one notifcation
+          try{
         if (paths.length === 3 && paths[1] === "notification") {
+          // Read one notification
           let title = paths[2];
           let notification = notifications[paths[0]].filter(
             (item) => item.title === title
-          );
-          if (notification.length === 1) {
-            notification = notification[0];
+          )[0];
             let str = JSON.stringify(notification, null, 2);
             buf.write(str);
             return cb(str.length);
-          } else {
+          }
+          }catch(err){
             return cb(0);
           }
         }
       }
-    },
-  };
+    }
 
   const fuse = new Fuse(argv._[0], ops, { debug: false });
   fuse.mount((err) => {
