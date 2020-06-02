@@ -100,6 +100,9 @@ async function main() {
             return cb(null, stat({ mode: 'dir', size: 4096 }));
           } else {
             // TODO: switch (category)
+            if (slices.length == 3 && slices[1] === Category.notification) {
+              return cb(null, stat({ mode: 'file', size: 1000 }));
+            }
           }
         }
       }
@@ -116,7 +119,7 @@ async function main() {
       let paths = path.substring(1).split('/');
       if (courses.find(course => course.name === paths[0])) {
         try {
-          if (paths.length === 3 && paths[1] === 'notification') {
+          if (paths.length === 3 && paths[1] === Category.notification) {
             // Read one notification
             let title = paths[2];
             let notification = notifications[paths[0]].filter(
