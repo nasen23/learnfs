@@ -102,6 +102,11 @@ async function main() {
             // TODO: switch (category)
             if (slices.length == 3 && slices[1] === Category.notification) {
               return cb(null, stat({ mode: 'file', size: 1000 }));
+            } else if (
+              slices.length == 3 &&
+              slices[1] === Category.discussion
+            ) {
+              return cb(null, stat({ mode: 'file', size: 1000 }));
             }
           }
         }
@@ -121,11 +126,18 @@ async function main() {
         try {
           if (paths.length === 3 && paths[1] === Category.notification) {
             // Read one notification
-            let title = paths[2];
             let notification = notifications[paths[0]].filter(
-              item => item.title === title
+              item => item.title === paths[2]
             )[0];
             let str = JSON.stringify(notification, null, 2);
+            buf.write(str);
+            return cb(str.length);
+          } else if (paths.length === 3 && paths[1] === Category.discussion) {
+            // Read discussion
+            let discussion = discussions[paths[0]].filter(
+              item => item.title === paths[2]
+            )[0];
+            let str = JSON.stringify(discussion, null, 2);
             buf.write(str);
             return cb(str.length);
           }
