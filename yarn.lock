@@ -102,7 +102,7 @@ combined-stream@^1.0.8:
   dependencies:
     delayed-stream "~1.0.0"
 
-cross-fetch@^3.0.1:
+cross-fetch@^3.0.1, cross-fetch@^3.0.4:
   version "3.0.4"
   resolved "https://registry.npm.taobao.org/cross-fetch/download/cross-fetch-3.0.4.tgz#7bef7020207e684a7638ef5f2f698e24d9eb283c"
   integrity sha1-e+9wICB+aEp2OO9fL2mOJNnrKDw=

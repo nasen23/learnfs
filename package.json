@@ -8,7 +8,9 @@
     "start": "ts-node -r esm index.ts"
   },
   "dependencies": {
+    "cross-fetch": "^3.0.4",
     "fuse-native": "^2.2.3",
+    "real-isomorphic-fetch": "^3.0.0",
     "thu-learn-lib": "^2.2.3",
     "yargs": "^15.3.1"
   },
