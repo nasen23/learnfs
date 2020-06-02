@@ -99,14 +99,32 @@ async function main() {
           if (slices.length == 2) {
             return cb(null, stat({ mode: 'dir', size: 4096 }));
           } else {
-            // TODO: switch (category)
-            if (slices.length == 3 && slices[1] === Category.notification) {
-              return cb(null, stat({ mode: 'file', size: 1000 }));
-            } else if (
-              slices.length == 3 &&
-              slices[1] === Category.discussion
-            ) {
-              return cb(null, stat({ mode: 'file', size: 1000 }));
+            try {
+              // TODO: switch (category)
+              if (slices.length == 3 && slices[1] === Category.notification) {
+                const size = Buffer.from(
+                  JSON.stringify(
+                    notifications[slices[0]].filter(
+                      nf => nf.title === slices[2]
+                    )[0]
+                  )
+                ).length;
+                return cb(null, stat({ mode: 'file', size }));
+              } else if (
+                slices.length == 3 &&
+                slices[1] === Category.discussion
+              ) {
+                const size = Buffer.from(
+                  JSON.stringify(
+                    discussions[slices[0]].filter(
+                      dc => dc.title === slices[2]
+                    )[0]
+                  )
+                ).length;
+                return cb(null, stat({ mode: 'file', size }));
+              }
+            } catch (err) {
+              return cb(Fuse.ENOENT);
             }
           }
         }
@@ -129,17 +147,19 @@ async function main() {
             let notification = notifications[paths[0]].filter(
               item => item.title === paths[2]
             )[0];
-            let str = JSON.stringify(notification, null, 2);
-            buf.write(str);
-            return cb(str.length);
+            let str = JSON.stringify(notification);
+            let tmp = Buffer.from(str);
+            tmp.copy(buf);
+            return cb(tmp.length);
           } else if (paths.length === 3 && paths[1] === Category.discussion) {
             // Read discussion
             let discussion = discussions[paths[0]].filter(
               item => item.title === paths[2]
             )[0];
             let str = JSON.stringify(discussion, null, 2);
-            buf.write(str);
-            return cb(str.length);
+            let tmp = Buffer.from(str);
+            tmp.copy(buf);
+            return cb(tmp.length);
           }
         } catch (err) {
           return cb(0);
