@@ -13,14 +13,16 @@ const argv = yargs
   .demandOption(['u', 'p'])
   .demandCommand(1).argv;
 
-let courses;
-
 async function main() {
   const helper = new Learn2018Helper({
     provider: () => {
       return { username: argv.u, password: argv.p };
     },
   });
+
+  let courses = [];
+  let files = {};
+  let homework = {};
 
   const ops = {
     init: async cb => {
@@ -44,12 +46,27 @@ async function main() {
             })
           )
         );
-      else if (
-        slices.length == 1 &&
-        courses.find(course => course.name === slices[0])
-      )
-        return cb(null, directory(Object.values(Category)));
-      else if (slices.length == 2) {
+      else if (slices.length > 0) {
+        const course = courses.find(course => course.name === slices[0]);
+        if (!course) return cb(Fuse.ENOENT);
+        if (slices.length == 1)
+          return cb(null, directory(Object.values(Category)));
+        else {
+          const category = Category[slices[1]];
+          if (!category) return cb(Fuse.ENOENT);
+          switch (category) {
+            case Category.notification:
+              break;
+            case Category.file:
+              files = await helper.getFileList(course.id);
+              return cb(null, directory([]));
+              break;
+            case Category.notification:
+              break;
+            case Category.notification:
+              break;
+          }
+        }
       }
       return cb(Fuse.ENOENT);
     },
