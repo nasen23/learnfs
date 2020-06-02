@@ -31,9 +31,16 @@ async function main() {
   let fds = {};
   let current = 0;
 
+  function getSemester(semester: string) {
+    if (semester === 'current')
+      return semesters[0];
+    return semester;
+  }
+
   const ops = {
     init: async cb => {
       semesters = await helper.getSemesterIdList();
+      semesters.push('current');
       cb(0);
     },
     readdir: async (path, cb) => {
@@ -44,7 +51,7 @@ async function main() {
         );
       const slices = path.split('/').filter(x => x);
       if (slices.length > 0) {
-        const semester = slices[0] as string;
+        const semester = getSemester(slices[0]);
         if (!semesters.includes(semester))
           return cb(Fuse.ENOENT);
         courses[semester] = await helper.getCourseList(semester);
@@ -125,7 +132,7 @@ async function main() {
       if (path === '/') return cb(null, stat({ mode: 'dir', size: 4096 }));
       const slices = path.split('/').filter(x => x);
       if (slices.length > 0) {
-        const semester = slices[0] as string;
+        const semester = getSemester(slices[0]);
         if (!semesters.includes(semester))
           return cb(Fuse.ENOENT);
         if (slices.length === 1)
@@ -197,7 +204,7 @@ async function main() {
       if (slices.length !== 4) {
         return cb(Fuse.ENOENT);
       }
-      const semester = slices[0];
+      const semester = getSemester(slices[0]);
       const course = courses[semester]?.find(course => course.name === slices[1]);
       if (!course) return cb(Fuse.ENOENT);
       const file = files[course.name].find(
@@ -216,7 +223,7 @@ async function main() {
     read: async function (path, fd, buf, len, pos, cb) {
       // Read notification
       let paths = path.substring(1).split('/');
-      const semester = paths[0];
+      const semester = getSemester(paths[0]);
       if (courses[semester]?.find(course => course.name === paths[1])) {
         try {
           if (paths.length === 4 && paths[2] === Category.notification) {
