@@ -22,7 +22,8 @@ async function main() {
   const helper = new Learn2018Helper();
   await helper.login(argv.u, argv.p);
 
-  let courses: CourseInfo[] = [];
+  let semesters: string[] = [];
+  let courses: { [key: string]: CourseInfo[] } = {};
   let notifications = {}; // course.name -> notification
   let discussions = {}; // course.name -> discussion
   let files = {};
@@ -32,26 +33,34 @@ async function main() {
 
   const ops = {
     init: async cb => {
-      const semester = await helper.getCurrentSemester();
-      courses = await helper.getCourseList(semester.id);
+      semesters = await helper.getSemesterIdList();
       cb(0);
     },
     readdir: async (path, cb) => {
       if (path === '/')
         return cb(
           null,
-          courses.map(course => {
-            return course.name;
-          })
+          semesters
         );
       const slices = path.split('/').filter(x => x);
       if (slices.length > 0) {
-        const course = courses.find(course => course.name === slices[0]);
+        const semester = slices[0] as string;
+        if (!semesters.includes(semester))
+          return cb(Fuse.ENOENT);
+        courses[semester] = await helper.getCourseList(semester);
+        if (slices.length === 1) {
+          return cb(null, directory(
+            courses[semester].map(course => {
+              return course.name;
+            })));
+        }
+        const course = courses[semester]?.find(course => course.name === slices[1]);
+
         if (!course) return cb(Fuse.ENOENT);
-        if (slices.length == 1)
+        if (slices.length == 2)
           return cb(null, directory(Object.values(Category)));
         else {
-          const category = slices[1] as Category;
+          const category = slices[2] as Category;
           if (!category) return cb(Fuse.ENOENT);
           if (category == Category.notification) {
             const res = await helper.getNotificationList(
@@ -59,7 +68,7 @@ async function main() {
               course.courseType
             );
             notifications[course.name] = res;
-            if (slices.length == 2) {
+            if (slices.length == 3) {
               return cb(
                 null,
                 res.map(notification => notification.title)
@@ -69,7 +78,7 @@ async function main() {
           } else if (category == Category.file) {
             const res = await helper.getFileList(course.id);
             files[course.name] = res;
-            if (slices.length == 2) {
+            if (slices.length == 3) {
               return cb(
                 null,
                 directory(
@@ -85,7 +94,7 @@ async function main() {
               course.courseType
             );
             discussions[course.name] = res;
-            if (slices.length == 2) {
+            if (slices.length == 3) {
               return cb(
                 null,
                 res.map(discussion => discussion.title)
@@ -98,13 +107,13 @@ async function main() {
               course.courseType
             );
             homework[course.name] = res;
-            if (slices.length === 2) {
+            if (slices.length === 3) {
               return cb(
                 null,
                 res.map(homework => homework.title)
               );
             }
-            // const title = slices[2]
+            // const title = slices[3]
             // const work = homework[course.name].find(work => work.title === title);
             // if (!work) return cb(Fuse.ENOENT);
           }
@@ -116,55 +125,61 @@ async function main() {
       if (path === '/') return cb(null, stat({ mode: 'dir', size: 4096 }));
       const slices = path.split('/').filter(x => x);
       if (slices.length > 0) {
-        const course = courses.find(course => course.name === slices[0]);
+        const semester = slices[0] as string;
+        if (!semesters.includes(semester))
+          return cb(Fuse.ENOENT);
+        if (slices.length === 1)
+          return cb(null, stat({ mode: 'dir', size: '4096' }));
+
+        const course = courses[semester]?.find(course => course.name === slices[1]);
         if (!course) return cb(Fuse.ENOENT);
-        if (slices.length == 1)
+        if (slices.length == 2)
           return cb(null, stat({ mode: 'dir', size: '4096' }));
         else {
-          const category = slices[1] as Category;
+          const category = slices[2] as Category;
           if (!category) return cb(Fuse.ENOENT);
-          if (slices.length == 2) {
+          if (slices.length == 3) {
             return cb(null, stat({ mode: 'dir', size: 4096 }));
           } else {
             try {
               // TODO: switch (category)
-              if (slices.length == 3 && slices[1] === Category.notification) {
+              if (slices.length == 4 && slices[2] === Category.notification) {
                 const size = Buffer.from(
                   JSON.stringify(
-                    notifications[slices[0]].filter(
-                      nf => nf.title === slices[2]
+                    notifications[slices[1]].filter(
+                      nf => nf.title === slices[3]
                     )[0]
                   )
                 ).length;
                 return cb(null, stat({ mode: 'file', size }));
               } else if (
-                slices.length == 3 &&
-                slices[1] === Category.discussion
+                slices.length == 4 &&
+                slices[2] === Category.discussion
               ) {
                 const size = Buffer.from(
                   JSON.stringify(
-                    discussions[slices[0]].filter(
-                      dc => dc.title === slices[2]
+                    discussions[slices[1]].filter(
+                      dc => dc.title === slices[3]
                     )[0]
                   )
                 ).length;
                 return cb(null, stat({ mode: 'file', size }));
               } else if (category === Category.file) {
-                const fileName = slices[2];
+                const fileName = slices[3];
                 const file = files[course.name].find(
                   file => `${file.title}.${file.fileType}` === fileName
                 );
                 if (!file) return cb(Fuse.ENOENT);
-                if (slices.length === 3) {
+                if (slices.length === 4) {
                   return cb(null, stat({ mode: 'file', size: file.rawSize }));
                 }
               } else {
-                const title = slices[2];
+                const title = slices[3];
                 const work = homework[course.name].find(
                   work => work.title === title
                 );
                 if (!work) return cb(Fuse.ENOENT);
-                if (slices.length === 3) {
+                if (slices.length === 4) {
                   return cb(null, stat({ mode: 'dir', size: 4096 }));
                 }
               }
@@ -179,13 +194,14 @@ async function main() {
     open: async function (path: string, flags, cb) {
       // match a file
       const slices = path.split('/').filter(x => x);
-      if (slices.length !== 3) {
+      if (slices.length !== 4) {
         return cb(Fuse.ENOENT);
       }
-      const course = courses.find(course => course.name === slices[0]);
+      const semester = slices[0];
+      const course = courses[semester]?.find(course => course.name === slices[1]);
       if (!course) return cb(Fuse.ENOENT);
       const file = files[course.name].find(
-        file => `${file.title}.${file.fileType}` === slices[2]
+        file => `${file.title}.${file.fileType}` === slices[3]
       );
       if (!file) return cb(Fuse.ENOENT);
       const fetch = new realIsomorphicFetch(crossFetch, helper.cookieJar);
@@ -200,29 +216,30 @@ async function main() {
     read: async function (path, fd, buf, len, pos, cb) {
       // Read notification
       let paths = path.substring(1).split('/');
-      if (courses.find(course => course.name === paths[0])) {
+      const semester = paths[0];
+      if (courses[semester]?.find(course => course.name === paths[1])) {
         try {
-          if (paths.length === 3 && paths[1] === Category.notification) {
+          if (paths.length === 4 && paths[2] === Category.notification) {
             // Read one notification
-            let notification = notifications[paths[0]].filter(
-              item => item.title === paths[2]
+            let notification = notifications[paths[1]].filter(
+              item => item.title === paths[3]
             )[0];
             let str = JSON.stringify(notification);
             let tmp = Buffer.from(str);
             tmp.copy(buf);
             return cb(tmp.length);
-          } else if (paths.length === 3 && paths[1] === Category.discussion) {
+          } else if (paths.length === 4 && paths[2] === Category.discussion) {
             // Read discussion
-            let discussion = discussions[paths[0]].filter(
-              item => item.title === paths[2]
+            let discussion = discussions[paths[1]].filter(
+              item => item.title === paths[3]
             )[0];
             let str = JSON.stringify(discussion);
             let tmp = Buffer.from(str);
             tmp.copy(buf);
             return cb(tmp.length);
-          } else if (paths.length === 3 && paths[1] === Category.file) {
-            const fileName = paths[2];
-            const file = files[paths[0]].find(
+          } else if (paths.length === 4 && paths[2] === Category.file) {
+            const fileName = paths[3];
+            const file = files[paths[1]].find(
               file => `${file.title}.${file.fileType}` === fileName
             );
             if (!file) return cb(Fuse.ENOENT);
