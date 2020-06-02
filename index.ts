@@ -1,17 +1,26 @@
+<<<<<<< HEAD
 import * as yargs from "yargs";
 import * as Fuse from "fuse-native";
 import { Learn2018Helper } from "thu-learn-lib";
 import { stat } from "./helpers";
+=======
+import * as yargs from 'yargs';
+import * as Fuse from 'fuse-native';
+import { Learn2018Helper } from 'thu-learn-lib';
+import { stat, directory, Category } from './helpers';
+>>>>>>> 2b221f53b3b19fb31ca510a35e8479a58b0d1999
 
 const argv = yargs
-  .scriptName("learnfs")
-  .usage("$0 [mountpoint] -u [username] -p [password]")
-  .alias("u", "username")
-  .alias("p", "password")
-  .string("u")
-  .string("p")
-  .demandOption(["u", "p"])
+  .scriptName('learnfs')
+  .usage('$0 [mountpoint] -u [username] -p [password]')
+  .alias('u', 'username')
+  .alias('p', 'password')
+  .string('u')
+  .string('p')
+  .demandOption(['u', 'p'])
   .demandCommand(1).argv;
+
+let courses;
 
 async function main() {
   const helper = new Learn2018Helper();
