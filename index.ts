@@ -43,35 +43,28 @@ async function main() {
       else if (
         courses.filter((course) => path === `/${course.name}`).length > 0
       ) {
-        console.log("getcourse:", path);
         return cb(null, ["notification", "discussion"]);
       } else if (path.endsWith("notification")) {
-        console.log("getnotification:", path);
         let course = courses.filter(
           (course) => path === `/${course.name}/notification`
         )[0];
-        console.log("course=", course);
         const res = await helper.getNotificationList(
           course.id,
           course.courseType
         );
-        console.log("res=", res);
         notifications[course.name] = res;
         return cb(
           null,
           res.map((notification) => notification.title)
         );
       } else if (path.endsWith("discussion")) {
-        console.log("getdiscussion:", path);
         let course = courses.filter(
           (course) => path === `/${course.name}/discussion`
         )[0];
-        console.log("course=", course);
         const res = await helper.getDiscussionList(
           course.id,
           course.courseType
         );
-        console.log("res=", res);
         return cb(
           null,
           res.map((discussion) => discussion.title)
@@ -86,7 +79,6 @@ async function main() {
         return process.nextTick(cb, null, stat({ mode: "dir", size: 4096 }));
       else {
         let paths = path.substring(1).split("/");
-        console.log("paths=", paths);
         if (courses.find((course) => course.name === paths[0])) {
           if (paths.length === 2) {
             if (paths[1] === "notification") {
@@ -129,14 +121,12 @@ async function main() {
         // get one notifcation
         if (paths.length === 3 && paths[1] === "notification") {
           let title = paths[2];
-          console.log("notifications=", notifications[paths[0]]);
           let notification = notifications[paths[0]].filter(
             (item) => item.title === title
           );
           if (notification.length === 1) {
             notification = notification[0];
             let str = JSON.stringify(notification, null, 2);
-            console.log("str=", str.length, str);
             buf.write(str);
             return cb(str.length);
           } else {
