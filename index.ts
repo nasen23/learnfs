@@ -156,7 +156,7 @@ async function main() {
             let discussion = discussions[paths[0]].filter(
               item => item.title === paths[2]
             )[0];
-            let str = JSON.stringify(discussion, null, 2);
+            let str = JSON.stringify(discussion);
             let tmp = Buffer.from(str);
             tmp.copy(buf);
             return cb(tmp.length);
