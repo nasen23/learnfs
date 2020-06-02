@@ -1,8 +1,8 @@
 import * as yargs from 'yargs';
 import * as Fuse from 'fuse-native';
 import * as crossFetch from 'cross-fetch';
-import { Response } from 'cross-fetch';
 import * as stream from 'stream';
+import { Response } from 'node-fetch';
 import { Learn2018Helper } from 'thu-learn-lib';
 import { CourseInfo, File } from 'thu-learn-lib/lib/types';
 import { stat, directory, Category } from './helpers';
@@ -190,10 +190,11 @@ async function main() {
       if (!file) return cb(Fuse.ENOENT);
       const fetch = new realIsomorphicFetch(crossFetch, helper.cookieJar);
       const response: Response = await fetch(file.downloadUrl);
-      fds[current++] = response.body;
+      fds[current++] = await response.buffer();
       return cb(0, current - 1);
     },
     release: function (path, fd, cb) {
+      delete fds[fd];
       return cb(0);
     },
     read: async function (path, fd, buf, len, pos, cb) {
@@ -227,13 +228,12 @@ async function main() {
             if (!file) return cb(Fuse.ENOENT);
             const stream = fds[fd];
             if (!stream) return cb(Fuse.ENOENT);
-            const tmp: Buffer = (stream as stream.Readable).read(len);
-            if (tmp) {
-              tmp.copy(buf);
-              return cb(len);
-            } else {
+            const slice = stream.slice(pos, pos + len);
+            if (slice.length === 0) {
               return cb(0);
             }
+            slice.copy(buf);
+            return cb(slice.length);
           }
         } catch (err) {
           return cb(0);

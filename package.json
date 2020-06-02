@@ -15,6 +15,7 @@
     "yargs": "^15.3.1"
   },
   "devDependencies": {
+    "@types/node-fetch": "^2.5.7",
     "@types/yargs": "^15.0.5",
     "esm": "^3.2.25",
     "ts-node": "^8.10.2",
