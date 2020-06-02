@@ -14,77 +14,96 @@ const argv = yargs
   .demandCommand(1).argv;
 
 async function main() {
-  const helper = new Learn2018Helper({
-    provider: () => {
-      return { username: argv.u, password: argv.p };
-    },
-  });
+  const helper = new Learn2018Helper();
+  await helper.login(argv.u, argv.p);
 
   let courses = [];
+  let notifications = {}; // course.name -> notification
+  let discussions = {}; // course.name -> discussion
   let files = {};
   let homework = {};
 
   const ops = {
     init: async cb => {
-      try {
-        const semester = await helper.getCurrentSemester();
-        courses = await helper.getCourseList(semester.id);
-        cb(0);
-      } catch (e) {
-        console.log(e);
-        process.exit(-1);
-      }
+      const semester = await helper.getCurrentSemester();
+      courses = await helper.getCourseList(semester.id);
+      cb(0);
     },
-    readdir: async (path: string, cb) => {
-      const slices = path.split('/').filter(x => x);
+    readdir: async (path, cb) => {
       if (path === '/')
         return cb(
           null,
-          directory(
-            courses.map(course => {
-              return course.name;
-            })
-          )
+          courses.map(course => {
+            return course.name;
+          })
         );
-      else if (slices.length > 0) {
+      const slices = path.split('/').filter(x => x);
+      if (slices.length > 0) {
         const course = courses.find(course => course.name === slices[0]);
         if (!course) return cb(Fuse.ENOENT);
         if (slices.length == 1)
           return cb(null, directory(Object.values(Category)));
         else {
-          const category = Category[slices[1]];
+          const category = slices[1] as Category;
           if (!category) return cb(Fuse.ENOENT);
-          switch (category) {
-            case Category.notification:
-              break;
-            case Category.file:
-              files = await helper.getFileList(course.id);
+          if (category == Category.notification) {
+            const res = await helper.getNotificationList(
+              course.id,
+              course.courseType
+            );
+            notifications[course.name] = res;
+            if (slices.length == 2) {
+              return cb(
+                null,
+                res.map(notification => notification.title)
+              );
+            } else {
+            }
+          } else if (category == Category.file) {
+            const res = await helper.getFileList(course.id);
+            files[course.name] = res;
+            if (slices.length == 2) {
               return cb(null, directory([]));
-              break;
-            case Category.notification:
-              break;
-            case Category.notification:
-              break;
+            } else {
+            }
+          } else if (category == Category.discussion) {
+            const res = await helper.getDiscussionList(
+              course.id,
+              course.courseType
+            );
+            discussions[course.name] = res;
+            if (slices.length == 2) {
+              return cb(
+                null,
+                res.map(discussion => discussion.title)
+              );
+            } else {
+            }
+          } else {
           }
         }
       }
       return cb(Fuse.ENOENT);
     },
     getattr: function (path: string, cb) {
-      const slices = path.split('/').filter(x => x);
       if (path === '/') return cb(null, stat({ mode: 'dir', size: 4096 }));
-      else if (
-        slices.length === 1 &&
-        courses.find(course => course.name === slices[0])
-      )
-        return cb(null, stat({ mode: 'dir', size: 4096 }));
-      else if (
-        slices.length === 2 &&
-        Object.values(Category).find(c => c === slices[1])
-      )
-        return cb(null, stat({ mode: 'dir', size: 4096 }));
-
-      return process.nextTick(cb, Fuse.ENOENT);
+      const slices = path.split('/').filter(x => x);
+      if (slices.length > 0) {
+        const course = courses.find(course => course.name === slices[0]);
+        if (!course) return cb(Fuse.ENOENT);
+        if (slices.length == 1)
+          return cb(null, stat({ mode: 'dir', size: '4096' }));
+        else {
+          const category: Category | undefined = slices[1] as Category;
+          if (!category) return cb(Fuse.ENOENT);
+          if (slices.length == 2) {
+            return cb(null, stat({ mode: 'dir', size: 4096 }));
+          } else {
+            // TODO: switch (category)
+          }
+        }
+      }
+      return cb(Fuse.ENOENT);
     },
     open: function (path, flags, cb) {
       return cb(0, 42);
@@ -93,16 +112,40 @@ async function main() {
       return cb(0);
     },
     read: function (path, fd, buf, len, pos, cb) {
-      var str = 'hello world'.slice(pos, pos + len);
-      if (!str) return cb(0);
-      buf.write(str);
-      return cb(str.length);
+      // Read notification
+      let paths = path.substring(1).split('/');
+      if (courses.find(course => course.name === paths[0])) {
+        // get one notifcation
+        if (paths.length === 3 && paths[1] === 'notification') {
+          let title = paths[2];
+          let notification = notifications[paths[0]].filter(
+            item => item.title === title
+          );
+          if (notification.length === 1) {
+            notification = notification[0];
+            let str = JSON.stringify(notification, null, 2);
+            buf.write(str);
+            return cb(str.length);
+          } else {
+            return cb(0);
+          }
+        }
+      }
     },
   };
 
   const fuse = new Fuse(argv._[0], ops, { debug: false });
   fuse.mount(err => {
     console.error(err);
+  });
+  process.once('SIGINT', function () {
+    fuse.unmount(err => {
+      if (err) {
+        console.error(err);
+      } else {
+        console.log('unmounted success');
+      }
+    });
   });
 }
 
