@@ -1,10 +1,13 @@
 import * as yargs from 'yargs';
 import * as Fuse from 'fuse-native';
 import * as crossFetch from 'cross-fetch';
-import * as stream from 'stream';
+import * as FormData from 'form-data';
+import * as fs from 'fs';
+import axios from 'axios';
+import cookieSupport from 'axios-cookiejar-support';
 import { Response } from 'node-fetch';
 import { Learn2018Helper } from 'thu-learn-lib';
-import { CourseInfo, File } from 'thu-learn-lib/lib/types';
+import { CourseInfo, Homework } from 'thu-learn-lib/lib/types';
 import { stat, directory, Category } from './helpers';
 const realIsomorphicFetch = require('real-isomorphic-fetch');
 
@@ -27,14 +30,46 @@ async function main() {
   let notifications = {}; // course.name -> notification
   let discussions = {}; // course.name -> discussion
   let files = {};
-  let homework = {};
+  let homeworks = {};
   let fds = {};
   let current = 0;
 
+  cookieSupport(axios);
+
   function getSemester(semester: string) {
-    if (semester === 'current')
-      return semesters[0];
+    if (semester === 'current') return semesters[0];
     return semester;
+  }
+
+  async function uploadHomework(id: string, path: string) {
+    const url = 'https://learn.tsinghua.edu.cn/b/wlxt/kczy/zy/student/tjzy';
+    const formData = new FormData();
+    console.log(path);
+    formData.append('fileupload', fs.createReadStream(path));
+    formData.append('xszyid', id);
+    formData.append('isDeleted', 0);
+    formData.append('zynr', '');
+
+    return await axios.post(url, formData, {
+      jar: helper.cookieJar,
+      withCredentials: true,
+      headers: formData.getHeaders(),
+    });
+  }
+
+  async function deleteHomework(id: string) {
+    const url = 'https://learn.tsinghua.edu.cn/b/wlxt/kczy/zy/student/tjzy';
+    const formData = new FormData();
+    formData.append('fileupload', 'undefined');
+    formData.append('xszyid', id);
+    formData.append('isDeleted', 1);
+    formData.append('zynr', '');
+
+    return await axios.post(url, formData, {
+      jar: helper.cookieJar,
+      withCredentials: true,
+      headers: formData.getHeaders(),
+    });
   }
 
   const ops = {
@@ -44,24 +79,25 @@ async function main() {
       cb(0);
     },
     readdir: async (path, cb) => {
-      if (path === '/')
-        return cb(
-          null,
-          semesters
-        );
+      if (path === '/') return cb(null, semesters);
       const slices = path.split('/').filter(x => x);
       if (slices.length > 0) {
         const semester = getSemester(slices[0]);
-        if (!semesters.includes(semester))
-          return cb(Fuse.ENOENT);
-        courses[semester] = await helper.getCourseList(semester);
+        if (!semesters.includes(semester)) return cb(Fuse.ENOENT);
         if (slices.length === 1) {
-          return cb(null, directory(
-            courses[semester].map(course => {
-              return course.name;
-            })));
+          courses[semester] = await helper.getCourseList(semester);
+          return cb(
+            null,
+            directory(
+              courses[semester].map(course => {
+                return course.name;
+              })
+            )
+          );
         }
-        const course = courses[semester]?.find(course => course.name === slices[1]);
+        const course = courses[semester]?.find(
+          course => course.name === slices[1]
+        );
 
         if (!course) return cb(Fuse.ENOENT);
         if (slices.length == 2)
@@ -109,20 +145,27 @@ async function main() {
             } else {
             }
           } else {
-            const res = await helper.getHomeworkList(
-              course.id,
-              course.courseType
-            );
-            homework[course.name] = res;
             if (slices.length === 3) {
+              const res = await helper.getHomeworkList(
+                course.id,
+                course.courseType
+              );
+              homeworks[course.name] = res;
               return cb(
                 null,
                 res.map(homework => homework.title)
               );
             }
-            // const title = slices[3]
-            // const work = homework[course.name].find(work => work.title === title);
-            // if (!work) return cb(Fuse.ENOENT);
+            const title = slices[3];
+            const homework: Homework = homeworks[course.name].find(
+              work => work.title === title
+            );
+            if (!homework) return cb(Fuse.ENOENT);
+            if (slices.length === 4 && homework.submittedAttachmentUrl) {
+              return cb(null, directory([homework.submittedAttachmentName]));
+            } else {
+              return cb(null, directory([]));
+            }
           }
         }
       }
@@ -133,12 +176,13 @@ async function main() {
       const slices = path.split('/').filter(x => x);
       if (slices.length > 0) {
         const semester = getSemester(slices[0]);
-        if (!semesters.includes(semester))
-          return cb(Fuse.ENOENT);
+        if (!semesters.includes(semester)) return cb(Fuse.ENOENT);
         if (slices.length === 1)
           return cb(null, stat({ mode: 'dir', size: '4096' }));
 
-        const course = courses[semester]?.find(course => course.name === slices[1]);
+        const course = courses[semester]?.find(
+          course => course.name === slices[1]
+        );
         if (!course) return cb(Fuse.ENOENT);
         if (slices.length == 2)
           return cb(null, stat({ mode: 'dir', size: '4096' }));
@@ -182,12 +226,18 @@ async function main() {
                 }
               } else {
                 const title = slices[3];
-                const work = homework[course.name].find(
+                const work: Homework = homeworks[course.name].find(
                   work => work.title === title
                 );
                 if (!work) return cb(Fuse.ENOENT);
                 if (slices.length === 4) {
                   return cb(null, stat({ mode: 'dir', size: 4096 }));
+                }
+                if (
+                  work.submittedAttachmentUrl &&
+                  slices[4] === work.submittedAttachmentName
+                ) {
+                  return cb(null, stat({ mode: 'file' }));
                 }
               }
             } catch (err) {
@@ -205,7 +255,9 @@ async function main() {
         return cb(Fuse.ENOENT);
       }
       const semester = getSemester(slices[0]);
-      const course = courses[semester]?.find(course => course.name === slices[1]);
+      const course = courses[semester]?.find(
+        course => course.name === slices[1]
+      );
       if (!course) return cb(Fuse.ENOENT);
       const file = files[course.name].find(
         file => `${file.title}.${file.fileType}` === slices[3]
@@ -263,6 +315,58 @@ async function main() {
           return cb(0);
         }
       }
+    },
+    symlink: async function (src: string, dest: string, cb) {
+      const paths = dest.split('/').filter(x => x);
+      if (paths.length !== 5) return cb(Fuse.EPERM);
+      const semester = getSemester(paths[0]);
+      const course = courses[semester]?.find(
+        course => course.name === paths[1]
+      );
+      if (course) {
+        if (paths[2] !== Category.homework) return cb(Fuse.EPERM);
+        const homework: Homework = homeworks[paths[1]].find(
+          homework => homework.title === paths[3]
+        );
+        if (!homework) return cb(Fuse.ENOENT);
+        try {
+          const resp = await uploadHomework(homework.id, src);
+          console.log(resp);
+          homeworks[paths[1]] = await helper.getHomeworkList(course.id);
+          return cb(0);
+        } catch (err) {
+          console.log(err);
+          return cb(Fuse.EPERM);
+        }
+      }
+      return cb(Fuse.ENOENT);
+    },
+    unlink: async function (path: string, cb) {
+      const paths = path.split('/').filter(x => x);
+      if (paths.length !== 5) return cb(Fuse.EPERM);
+      const semester = getSemester(paths[0]);
+      const course = courses[semester]?.find(
+        course => course.name === paths[1]
+      );
+      if (course) {
+        if (paths[2] !== Category.homework) return cb(Fuse.EPERM);
+        const homework: Homework = homeworks[paths[1]].find(
+          homework => homework.title === paths[3]
+        );
+        if (!homework) return cb(Fuse.ENOENT);
+        if (paths[4] !== homework.submittedAttachmentName)
+          return cb(Fuse.ENOENT);
+        try {
+          const resp = await deleteHomework(homework.id);
+          console.log(resp);
+          homeworks[paths[1]] = await helper.getHomeworkList(course.id);
+          return cb(0);
+        } catch (err) {
+          console.log(err);
+          return cb(Fuse.EPERM);
+        }
+      }
+      return cb(Fuse.ENOENT);
     },
   };
 
