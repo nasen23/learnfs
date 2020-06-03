@@ -259,14 +259,19 @@ async function main() {
         course => course.name === slices[1]
       );
       if (!course) return cb(Fuse.ENOENT);
-      const file = files[course.name].find(
-        file => `${file.title}.${file.fileType}` === slices[3]
-      );
-      if (!file) return cb(Fuse.ENOENT);
-      const fetch = new realIsomorphicFetch(crossFetch, helper.cookieJar);
-      const response: Response = await fetch(file.downloadUrl);
-      fds[current++] = await response.buffer();
-      return cb(0, current - 1);
+      try {
+        const file = files[course.name].find(
+          file => `${file.title}.${file.fileType}` === slices[3]
+        );
+        if (!file) return cb(Fuse.ENOENT);
+        const fetch = new realIsomorphicFetch(crossFetch, helper.cookieJar);
+        const response: Response = await fetch(file.downloadUrl);
+        fds[current++] = await response.buffer();
+        return cb(0, current - 1);
+      } catch (err) {
+        current++;
+        return cb(0, current - 1);
+      }
     },
     release: function (path, fd, cb) {
       delete fds[fd];
