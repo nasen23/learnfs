@@ -85,7 +85,8 @@ async function main() {
         const semester = getSemester(slices[0]);
         if (!semesters.includes(semester)) return cb(Fuse.ENOENT);
         if (slices.length === 1) {
-          courses[semester] = await helper.getCourseList(semester);
+          if (!courses[semester])
+            courses[semester] = await helper.getCourseList(semester);
           return cb(
             null,
             directory(
